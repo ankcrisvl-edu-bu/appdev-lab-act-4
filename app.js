@@ -71,7 +71,6 @@ const receiptBox = document.getElementById("receiptBox");
 
 // ---------- Helpers ----------
 function saveInventory() {
-    // store category as string for persistence
     const plainInventory = inventory.map(p => ({
         name: p.name,
         code: p.code,
