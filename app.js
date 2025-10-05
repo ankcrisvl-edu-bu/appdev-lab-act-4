@@ -52,8 +52,6 @@ const inventoryList = document.getElementById("list");
 const tableBtn = document.getElementById("tableBtn");
 const cardBtn = document.getElementById("cardBtn");
 
-const searchInput = document.getElementById("searchInput");
-const updateResult = document.getElementById("updateResult");
 const updateBtn = document.getElementById("update");
 const deleteBtn = document.getElementById("Delete");
 
@@ -110,7 +108,6 @@ form.addEventListener("submit", function (e) {
 
     inventory.push(record);
 
-    // Console Logs
     console.log("Product added:", record);
     console.log("Current inventory:", inventory);
 
@@ -121,38 +118,41 @@ form.addEventListener("submit", function (e) {
     form.reset();
 });
 
-// Search product by partial keyword (name or code)
-document.getElementById("searchInput").addEventListener("input", function () {
-    const query = this.value.toLowerCase();
+// ---------- Search setup ----------
+function setupSearchInput(inventory) {
+    const searchInput = document.getElementById("searchInput");
     const resultDiv = document.getElementById("updateResult");
 
-    if (!query) {
-        resultDiv.innerHTML = "";
-        delete resultDiv.dataset.code;
-        return;
-    }
+    searchInput.addEventListener("input", function () {
+        const query = this.value.toLowerCase();
 
-    // find first match by keyword in name or code
-    const product = inventory.find(
-        p => p.name.toLowerCase().includes(query) || p.code.toLowerCase().includes(query)
-    );
+        if (!query) {
+            resultDiv.innerHTML = "";
+            delete resultDiv.dataset.code;
+            return;
+        }
 
-    if (product) {
-        resultDiv.innerHTML = `
-        <p><strong>${product.name}</strong> (${product.code})</p>
-        <p>Price: ₱${product.price} | Stock: ${product.stock}</p>
-        <label>New Price: <input type="number" id="newPrice" value="${product.price}"></label><br>
-        <label>New Stock: <input type="number" id="newStock" value="${product.stock}"></label><br>
-        `;
-        resultDiv.dataset.code = product.code; // store code for update/delete
-    } else {
-        resultDiv.innerHTML = "<p>No matching product found.</p>";
-        delete resultDiv.dataset.code;
-    }
-});
+        const product = inventory.find(
+            p => p.name.toLowerCase().includes(query) || p.code.toLowerCase().includes(query)
+        );
 
-// Update product
-document.getElementById("update").addEventListener("click", function () {
+        if (product) {
+            resultDiv.innerHTML = `
+                <p><strong>${product.name}</strong> (${product.code})</p>
+                <p>Price: ₱${product.price} | Stock: ${product.stock}</p>
+                <label>New Price: <input type="number" id="newPrice" value="${product.price}"></label><br>
+                <label>New Stock: <input type="number" id="newStock" value="${product.stock}"></label><br>
+            `;
+            resultDiv.dataset.code = product.code;
+        } else {
+            resultDiv.innerHTML = "<p>No matching product found.</p>";
+            delete resultDiv.dataset.code;
+        }
+    });
+}
+
+// ---------- Update product ----------
+updateBtn.addEventListener("click", function () {
     const resultDiv = document.getElementById("updateResult");
     const code = resultDiv.dataset.code;
     if (!code) return alert("No product selected!");
@@ -166,7 +166,6 @@ document.getElementById("update").addEventListener("click", function () {
     if (!isNaN(newPrice)) product.price = newPrice;
     if (!isNaN(newStock)) product.stock = newStock;
 
-    // Console Logs
     console.log(`Updated product (${code}):`, product);
     console.log("Inventory after update:", inventory);
 
@@ -177,8 +176,8 @@ document.getElementById("update").addEventListener("click", function () {
     alert("Product updated!");
 });
 
-// Delete product
-document.getElementById("Delete").addEventListener("click", function () {
+// ---------- Delete product ----------
+deleteBtn.addEventListener("click", function () {
     const resultDiv = document.getElementById("updateResult");
     const code = resultDiv.dataset.code;
     if (!code) return alert("No product selected!");
@@ -187,21 +186,12 @@ document.getElementById("Delete").addEventListener("click", function () {
     if (index === -1) return alert("Product not found");
 
     const product = inventory[index];
-
-    // Ask before deleting
     const confirmDelete = confirm(`Are you sure you want to delete "${product.name}" (${product.code})?`);
-    if (!confirmDelete) {
-        console.log("Deletion cancelled by user.");
-        return; // stop here if user clicked Cancel
-    }
+    if (!confirmDelete) return;
 
-    // Console Logs before actual deletion
-    console.log(`Deleting product: ${product.name} (${product.code})`);
-
-    // Remove product
     inventory.splice(index, 1);
 
-    // Console log updated array
+    console.log("Deleted:", product);
     console.log("Inventory after delete:", inventory);
 
     saveInventory();
@@ -225,14 +215,9 @@ function addToCart(code, qty = 1) {
         cart.push({ product, quantity: qty });
     }
 
-    // reduce stock and persist
     product.stock -= qty;
 
-    // Console Logs
     console.log(`Added to cart: ${product.name} x${qty}`);
-    console.log("Current cart:", cart);
-    console.log(" Inventory after addToCart:", inventory);
-
     saveInventory();
     resetDisplayDataToInventory();
     displayCart();
@@ -261,62 +246,42 @@ function displayCart() {
     });
 }
 
-// Update cart quantity
 function updateCartQuantity(index) {
     const input = document.getElementById(`qty-${index}`);
     const newQty = parseInt(input.value, 10);
 
     if (Number.isNaN(newQty) || newQty < 1) {
         alert("Quantity must be at least 1");
-        // reset input to current cart qty (safe UX)
         input.value = cart[index].quantity;
         return;
     }
 
     const cartItem = cart[index];
     const oldQty = cartItem.quantity;
-    const diff = newQty - oldQty; // >0 means user wants more, <0 means user decreased
+    const diff = newQty - oldQty;
 
-    // Only check stock when increasing quantity
     if (diff > 0 && cartItem.product.stock < diff) {
         alert("Not enough stock available!");
         input.value = oldQty;
         return;
     }
 
-    // Apply stock change (subtract diff; if diff is negative this *adds* stock back)
     cartItem.product.stock -= diff;
     cartItem.quantity = newQty;
 
-    // Console Logs
-    console.log(`Cart item updated: ${cartItem.product.name}, qty: ${oldQty} → ${newQty}`);
-    console.log("Current cart:", cart);
-    console.log("Inventory after cart update:", inventory);
-
-    // Persist and refresh UI
     saveInventory();
     resetDisplayDataToInventory();
     displayCart();
     displayInventory();
 }
 
-// Delete cart item
 function deleteCartItem(index) {
     const cartItem = cart[index];
     if (!cartItem) return;
 
-    // Return quantity back to stock
     cartItem.product.stock += cartItem.quantity;
-
-    // Remove from cart
     cart.splice(index, 1);
 
-    // Console Logs
-    console.log(`Removed from cart: ${cartItem.product.name}, qty: ${cartItem.quantity}`);
-    console.log("Current cart:", cart);
-    console.log("Inventory after delete:", inventory);
-
-    // Persist and refresh UI
     saveInventory();
     resetDisplayDataToInventory();
     displayCart();
@@ -329,28 +294,18 @@ function checkout() {
         return;
     }
 
-    // Console Logss
-    console.log("Checkout started...");
-    console.log("Cart at checkout:", cart);
-
     const receipt = generateReceipt();
-    alert(receipt); // show in popup (human-readable string)
+    alert(receipt);
 
-    // Clear cart after checkout
     cart = [];
-
-    // Console Logs
-    console.log("Cart cleared after checkout");
-    console.log("Inventory after checkout:", inventory);
 
     saveInventory();
     resetDisplayDataToInventory();
     displayCart();
     displayInventory();
     updateSummary(); 
-    }
+}
 
-// Generate receipt with VAT and discount
 function generateReceipt() {
     if (cart.length === 0) return "Cart is empty. Nothing to checkout.";
 
@@ -364,26 +319,18 @@ function generateReceipt() {
     });
 
     const tax = subtotal * 0.12;
-    let discount = 0;
-
-    if (subtotal > 5000) {
-        discount = subtotal * 0.10; // 10% discount
-    }
-
+    let discount = subtotal > 5000 ? subtotal * 0.10 : 0;
     const total = subtotal + tax - discount;
 
     receipt += "-------------------\n";
     receipt += `Subtotal: ₱${subtotal.toFixed(2)}\n`;
     receipt += `VAT (12%): ₱${tax.toFixed(2)}\n`;
-    if (discount > 0) {
-        receipt += `Discount (10%): -₱${discount.toFixed(2)}\n`;
-    }
+    if (discount > 0) receipt += `Discount (10%): -₱${discount.toFixed(2)}\n`;
     receipt += `TOTAL: ₱${total.toFixed(2)}\n`;
     receipt += "===================\n";
 
     return receipt;
 }
-
 
 // ---------- Display ----------
 function displayInventory(data = displayData) {
@@ -394,14 +341,9 @@ function displayInventory(data = displayData) {
         return;
     }
 
-    if (currentView === "table") {
-        renderTable(data);
-    } else {
-        renderCards(data);
-    }
+    currentView === "table" ? renderTable(data) : renderCards(data);
 }
 
-// Table View
 function renderTable(data) {
     const table = document.createElement("table");
     table.border = "1";
@@ -409,7 +351,6 @@ function renderTable(data) {
     table.style.width = "100%";
     table.style.marginTop = "10px";
 
-    // Header
     const headerRow = document.createElement("tr");
     ["Name", "Code", "Price", "Stock", "Restock Threshold", "Category", "Action"].forEach(h => {
         const th = document.createElement("th");
@@ -419,7 +360,6 @@ function renderTable(data) {
     });
     table.appendChild(headerRow);
 
-    // Rows
     data.forEach(rec => {
         const row = document.createElement("tr");
 
@@ -428,15 +368,13 @@ function renderTable(data) {
             row.style.color = "white";
         }
 
-        const cells = [rec.name, rec.code, rec.price, rec.stock, rec.restock, rec.category.name];
-        cells.forEach(val => {
+        [rec.name, rec.code, rec.price, rec.stock, rec.restock, rec.category.name].forEach(val => {
             const td = document.createElement("td");
             td.textContent = val;
             td.style.padding = "6px 8px";
             row.appendChild(td);
         });
 
-        // Add to cart button
         const actionTd = document.createElement("td");
         const btn = document.createElement("button");
         btn.textContent = "Add to Cart";
@@ -450,7 +388,6 @@ function renderTable(data) {
     inventoryList.appendChild(table);
 }
 
-// Card View
 function renderCards(data) {
     const container = document.createElement("div");
     container.style.display = "flex";
@@ -509,13 +446,11 @@ sortNameBtn && sortNameBtn.addEventListener("click", () => {
     displayInventory();
 });
 
-// Sort by Price (Low -> High)
 sortPriceAscBtn && sortPriceAscBtn.addEventListener("click", () => {
     displayData = inventory.slice().sort((a, b) => b.price - a.price);
     displayInventory();
 });
 
-// Sort by Price (High -> Low)
 sortPriceDescBtn && sortPriceDescBtn.addEventListener("click", () => {
     displayData = inventory.slice().sort((a, b) => a.price - b.price);
     displayInventory();
@@ -552,16 +487,9 @@ function updateSummary() {
         return;
     }
 
-    // Total products
     const totalItems = inventory.length;
-
-    // Total stock quantity
     const totalStock = inventory.reduce((sum, p) => sum + p.stock, 0);
-
-    // Total inventory value
     const totalValue = inventory.reduce((sum, p) => sum + (p.stock * p.price), 0);
-
-    // Low stock items
     const lowStockCount = inventory.filter(p => p.stock < p.restock).length;
 
     summaryDiv.innerHTML = `
@@ -580,3 +508,4 @@ checkoutBtn && checkoutBtn.addEventListener("click", checkout);
 displayInventory();
 displayCart();
 updateSummary();
+setupSearchInput(inventory);
